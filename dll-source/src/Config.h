@@ -86,6 +86,12 @@ namespace BioForge::Config
         // changes.
         std::vector<std::string> extraBlocks;
 
+        // Hand the model every line this NPC's records were written to say,
+        // not only what the engine lets them say right now (Web::
+        // FetchAuthoredDialogue). Without it a quest character early in their
+        // story is written from their idle lines alone.
+        bool authoredDialogue = true;
+
         // So Refresh() can tell whether anything actually moved.
         bool operator==(const Settings&) const = default;
     };

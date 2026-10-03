@@ -107,11 +107,16 @@ with no restart.
 | Concurrent generations | `generate.maxConcurrent` | `4` |
 | Refine ties after a batch | `generate.refinePass` | `true` |
 | Use BioForge's own LLM | `llm.useOwnVariant` | `false` |
+| Use authored dialogue | `generate.authoredDialogue` | `true` |
 | Extra bio sections | `generate.extraBlocks` | `""` |
 | Use regional digests | `digest.enabled` | `true` |
 | Build digest before a batch | `digest.autoBuild` | `true` |
 | Bios harvested per digest | `digest.maxCandidates` | `120` |
 
+- 📜 **Authored dialogue** (`generate.authoredDialogue`): besides what the NPC can say right now, the model
+  gets every quest and scene line written for that NPC (conditions not evaluated, from SkyrimNet's Actor
+  Dialogue data, fetched on a worker thread). A quest character whose story is still locked is no longer
+  written from their idle lines alone. Lines that only fit anyone of their faction, race or sex are left out.
 - 🧩 **Extra bio sections** (`generate.extraBlocks`) are for plugins that render sections of their own
   beyond SkyrimNet's ten. Such a plugin describes its sections in the prompt hook
   `prompts/submodules/bioforge_sections/*.prompt` (rendered into `bioforge_generate` under

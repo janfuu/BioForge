@@ -109,6 +109,7 @@ namespace BioForge::Config
             s.refinePass = ReadBool("generate.refinePass", defaults.refinePass);
             s.ownVariant = ReadBool("llm.useOwnVariant", defaults.ownVariant);
             s.extraBlocks = ReadNameList("generate.extraBlocks");
+            s.authoredDialogue = ReadBool("generate.authoredDialogue", defaults.authoredDialogue);
 
             s.digestEnabled   = ReadBool("digest.enabled", defaults.digestEnabled);
             s.digestAutoBuild = ReadBool("digest.autoBuild", defaults.digestAutoBuild);
@@ -133,6 +134,7 @@ namespace BioForge::Config
                 extra += (extra.empty() ? "" : ", ") + name;
             }
             logs::info("{}: extra blocks={}"sv, a_what, extra.empty() ? "(none)" : extra);
+            logs::info("{}: authored dialogue={}"sv, a_what, g_settings.authoredDialogue);
         }
     }
 

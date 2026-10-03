@@ -234,6 +234,35 @@ namespace BioForge::Web
         return ReadEndpoint().enabled;
     }
 
+    std::string FetchAuthoredDialogue(std::uint32_t a_refFormID)
+    {
+        const auto ep = ReadEndpoint();
+        if (!ep.enabled) {
+            return {};
+        }
+
+        char path[320]{};
+        std::snprintf(path, sizeof(path),
+                      "/game-data?api=actor-dialogue&actorFormID=0x%08X"
+                      "&evaluateConditions=false&onlyAvailable=false"
+                      "&includeQuestDialogue=true&includeSceneDialogue=true"
+                      "&includeGenericDialogue=false&includeCombatDialogue=false",
+                      a_refFormID);
+
+        auto r = Request("GET", ep, path, std::string{});
+        if (!r.httpOk || !ResponseSaysSuccess(r.body) || r.body.empty() ||
+            r.body.front() != '{' || r.body.back() != '}') {
+            logs::warn("dialogue: no authored lines for {:08X} - {}"sv, a_refFormID,
+                       !r.error.empty()  ? r.error
+                       : !r.body.empty() ? ResponseMessage(r.body)
+                                         : ("HTTP " + std::to_string(r.status)));
+            return {};
+        }
+        logs::info("dialogue: {} bytes of authored lines for {:08X}"sv, r.body.size(),
+                   a_refFormID);
+        return std::move(r.body);
+    }
+
     CommitResult CreateOrUpdateBio(std::string_view a_displayName,
                                    std::uint64_t a_actorUUID, std::string_view a_stem,
                                    std::string_view a_content)

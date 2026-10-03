@@ -10,6 +10,9 @@
 #include "ScopeSelector.h"
 #include "StagingStore.h"
 #include "SkyrimNetAPI.h"
+#include "SkyrimNetWeb.h"
+
+#include <thread>
 
 #include <deque>
 #include <map>
@@ -266,6 +269,9 @@ namespace BioForge::Generator
             std::string   variant;
             // generate.extraBlocks, stamped with the variant for the same reason.
             std::vector<std::string> extraBlocks;
+            // generate.authoredDialogue: fetch the NPC's authored lines on a
+            // worker just before sending (Dispatch).
+            bool authoredDialogue{};
         };
 
         // A staged bio whose relationships block needs re-asking, and the
@@ -307,6 +313,8 @@ namespace BioForge::Generator
         std::string            g_pendingRegion;
 
         void Pump();
+        void AttachAuthoredDialogue(Job& a_job);
+        bool Send(const Job& a_job);
 
         // Defined below, beside RunRefinePass - the two are a pair, and this is
         // called from Generate() further up.
@@ -383,34 +391,67 @@ namespace BioForge::Generator
                     Staging::Begin(job.refFormID, job.name, job.fileName);
                 }
 
-                const bool queued = SN::SendCustomPrompt(
-                    job.kind == Kind::Refine ? kRefinePrompt.data() : kPromptName.data(),
-                    job.variant.c_str(), job.contextJson.c_str(),
-                    [kind = job.kind, ref = job.refFormID, ctx = job.contextJson,
-                     extra = job.extraBlocks](const char* a_response, int a_success) {
-                        OnComplete(kind, ref, ctx, extra, a_response, a_success);
-                    });
-
-                if (!queued) {
-                    if (job.kind == Kind::Refine) {
-                        logs::warn("refine: SkyrimNet did not queue {:08X}"sv, job.refFormID);
-                    } else {
-                        Staging::RecordFailed(job.refFormID, "SkyrimNet did not queue the task");
-                    }
-                    {
-                        std::lock_guard lock{ g_queueMutex };
-                        --g_inFlight;
-                        if (job.kind == Kind::Refine) {
-                            --g_refineInFlight;
+                if (job.kind == Kind::Generate && job.authoredDialogue) {
+                    // The fetch is HTTP to an endpoint that reads game data:
+                    // never on the main thread, which Pump may be running on.
+                    // The slot is already counted; the worker sends when the
+                    // lines are in (or without them, if the fetch fails).
+                    std::thread([job = std::move(job)]() mutable {
+                        AttachAuthoredDialogue(job);
+                        if (!Send(job)) {
+                            Pump();   // its slot just freed up
                         }
-                    }
-                    continue;   // the loop takes the next one; no recursion
+                    }).detach();
+                    continue;
                 }
 
-                logs::info("{}: task queued for {} ({})"sv,
-                           job.kind == Kind::Refine ? "refine"sv : "generate"sv,
-                           job.name, job.fileName);
+                Send(job);   // on failure the loop simply takes the next one
             }
+        }
+
+        // The authored lines go into the context as the endpoint returned
+        // them (`authoredDialogue`); the prompt picks out the ones written for
+        // this NPC. Spliced, not parsed: the context is our own JSON object.
+        void AttachAuthoredDialogue(Job& a_job)
+        {
+            const auto raw = Web::FetchAuthoredDialogue(a_job.refFormID);
+            const auto end = a_job.contextJson.rfind('}');
+            if (raw.empty() || end == std::string::npos) {
+                return;
+            }
+            a_job.contextJson.insert(end, ",\"authoredDialogue\":" + raw);
+        }
+
+        // Hand one job to SkyrimNet. False when it would not queue it; the
+        // job's slot is released and its staging entry marked failed.
+        bool Send(const Job& a_job)
+        {
+            const bool queued = SN::SendCustomPrompt(
+                a_job.kind == Kind::Refine ? kRefinePrompt.data() : kPromptName.data(),
+                a_job.variant.c_str(), a_job.contextJson.c_str(),
+                [kind = a_job.kind, ref = a_job.refFormID, ctx = a_job.contextJson,
+                 extra = a_job.extraBlocks](const char* a_response, int a_success) {
+                    OnComplete(kind, ref, ctx, extra, a_response, a_success);
+                });
+
+            if (!queued) {
+                if (a_job.kind == Kind::Refine) {
+                    logs::warn("refine: SkyrimNet did not queue {:08X}"sv, a_job.refFormID);
+                } else {
+                    Staging::RecordFailed(a_job.refFormID, "SkyrimNet did not queue the task");
+                }
+                std::lock_guard lock{ g_queueMutex };
+                --g_inFlight;
+                if (a_job.kind == Kind::Refine) {
+                    --g_refineInFlight;
+                }
+                return false;
+            }
+
+            logs::info("{}: task queued for {} ({})"sv,
+                       a_job.kind == Kind::Refine ? "refine"sv : "generate"sv,
+                       a_job.name, a_job.fileName);
+            return true;
         }
 
         // Main thread only - reads game data through the SkyrimNet API.
@@ -429,6 +470,7 @@ namespace BioForge::Generator
             a_job.contextJson = context;
             a_job.variant     = Config::LlmVariant();
             a_job.extraBlocks = Config::Get().extraBlocks;
+            a_job.authoredDialogue = Config::Get().authoredDialogue;
             return true;
         }
 

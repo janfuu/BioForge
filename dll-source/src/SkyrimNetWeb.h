@@ -36,4 +36,17 @@ namespace BioForge::Web
     // from <SkyrimNet>/config/WebServer.yaml. A commit against a disabled
     // server fails with a note pointing here.
     bool ServerEnabled();
+
+    // Everything this actor's own records were written to say, conditions NOT
+    // evaluated - the lines a quest only unlocks later included. available_
+    // dialogue() in the prompt sees only what the engine allows right now, so
+    // a quest character early in their story reads as whatever their idle
+    // lines make them (an innkeeper whose whole questline is still locked).
+    // Quest and scene dialogue only; generic and combat lines are left out.
+    //
+    // Returns the raw JSON of GET /game-data?api=actor-dialogue (the
+    // dashboard's Actor Dialogue page), or "" on any failure. The prompt
+    // filters it; nothing here parses it. Pure HTTP, but the endpoint reads
+    // game data: call it from a WORKER, never the main thread.
+    std::string FetchAuthoredDialogue(std::uint32_t a_refFormID);
 }

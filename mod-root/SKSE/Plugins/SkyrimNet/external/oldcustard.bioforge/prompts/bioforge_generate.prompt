@@ -346,7 +346,26 @@ mod's recruitment script sitting ready - it does NOT mean this character is or e
 anyone's companion. Write them as they are before any of it happens: someone with a life
 of their own who could be asked. Use the dialogue for their voice, vocabulary, trade and
 opinions, which is what it is genuinely evidence of.
-{% if length(localActors) > 0 %}## Other named people in this same place
+{% if exists("authoredDialogue") and existsIn(authoredDialogue, "allDialogue") %}
+{# generate.authoredDialogue: everything the NPC's records were written to say,
+   conditions NOT evaluated (Web::FetchAuthoredDialogue, the dashboard's Actor
+   Dialogue data). The transcript above is only what the engine allows right now,
+   so a quest character early in their story looked like whatever their idle lines
+   made them: a barmaid who hears voices, an innkeeper who is secretly something
+   else. Only lines written for THIS character are listed: matchSpecificity 3 is a
+   condition naming them, 2 their quest alias or scene role; 0-1 are lines anyone
+   of their faction, race, sex or voice could say. Capped, in the order SkyrimNet
+   returns them. #}
+{% set ad_n = 0 %}## Lines their own story was written to give them
+{% for x in authoredDialogue.allDialogue %}{% if ad_n < 150 and x.matchSpecificity >= 2 and x.categoryName != "Combat" %}{% set ad_n = ad_n + 1 %}- {% if isString(x.topicPromptText) and length(x.topicPromptText) > 0 %}(asked "{{ x.topicPromptText }}") {% endif %}{% for r in x.responses %}{{ r.text }} {% endfor %}
+{% endif %}{% endfor %}{% if ad_n == 0 %}(none written for them beyond the lines above)
+{% endif %}
+These are written for this character, but most are locked behind their story, and
+many belong to its later parts. Read them for WHO THEY ARE: their nature, voice,
+secrets, what they carry and what drives them, all of which is true from the start.
+Never write their later events as if they had already happened: no meetings, quests,
+revelations or relationships with the player from these lines.
+{% endif %}{% if length(localActors) > 0 %}## Other named people in this same place
 {# Supplied by the DLL from its own scan, because relatedActors is built on
    shared EVENT history and is empty for a place the player has only just
    arrived at. These people demonstrably share this location. #}

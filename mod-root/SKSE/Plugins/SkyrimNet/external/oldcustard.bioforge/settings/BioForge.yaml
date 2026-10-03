@@ -92,6 +92,13 @@ schema:
       defaultValue: false
       category: "Generation"
 
+    - name: "Use Authored Dialogue"
+      path: "generate.authoredDialogue"
+      type: "bool"
+      description: "Also give the model every line the NPC's own mod wrote for them, including lines their story only unlocks later. Without it a quest character early in their story is written from their idle lines alone - an innkeeper whose whole questline is still locked reads as just an innkeeper. Only lines written for that character are used, and the model is told to read later ones for who they are, not as events that have happened."
+      defaultValue: true
+      category: "Generation"
+
     - name: "Extra Bio Sections"
       path: "generate.extraBlocks"
       type: "string"
