@@ -92,6 +92,13 @@ schema:
       defaultValue: false
       category: "Generation"
 
+    - name: "Extra Bio Sections"
+      path: "generate.extraBlocks"
+      type: "string"
+      description: "Optional sections beyond SkyrimNet's ten, for plugins that render sections of their own. Comma-separated names, e.g. family_secrets, rumours. A plugin that wants one describes it to the model through BioForge's prompt hook; BioForge then keeps the section when the model writes it, never requires it, and adds it after the ten. Leave empty unless a plugin asks you to fill it in."
+      defaultValue: ""
+      category: "Generation"
+
     # ---- Regional digest ---------------------------------------------------
     # A short reference sheet of who holds power, trade and property in one
     # settlement, written once by the LLM and reused by every bio generated

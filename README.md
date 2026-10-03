@@ -107,9 +107,17 @@ with no restart.
 | Concurrent generations | `generate.maxConcurrent` | `4` |
 | Refine ties after a batch | `generate.refinePass` | `true` |
 | Use BioForge's own LLM | `llm.useOwnVariant` | `false` |
+| Extra bio sections | `generate.extraBlocks` | `""` |
 | Use regional digests | `digest.enabled` | `true` |
 | Build digest before a batch | `digest.autoBuild` | `true` |
 | Bios harvested per digest | `digest.maxCandidates` | `120` |
+
+- 🧩 **Extra bio sections** (`generate.extraBlocks`) are for plugins that render sections of their own
+  beyond SkyrimNet's ten. Such a plugin describes its sections in the prompt hook
+  `prompts/submodules/bioforge_sections/*.prompt` (rendered into `bioforge_generate` under
+  "Optional sections"; nothing renders when no plugin adds a file) and asks you to list the names
+  here. BioForge keeps a listed section when the model writes it, never reports it missing, and
+  writes it after the ten. Any other unknown heading is still dropped.
 
 - 🐢 Lower `generate.maxConcurrent` if your provider rate-limits you. Raise it for a local
   model.

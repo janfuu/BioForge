@@ -264,6 +264,8 @@ namespace BioForge::Generator
             // Stamped at assembly on the main thread, like everything else in
             // a Job: Pump also runs from completion callbacks on workers.
             std::string   variant;
+            // generate.extraBlocks, stamped with the variant for the same reason.
+            std::vector<std::string> extraBlocks;
         };
 
         // A staged bio whose relationships block needs re-asking, and the
@@ -313,7 +315,8 @@ namespace BioForge::Generator
                                std::string_view              a_digest);
 
         void OnComplete(Kind a_kind, std::uint32_t a_refFormID, const std::string& a_context,
-                        const char* a_response, int a_success)
+                        const std::vector<std::string>& a_extraBlocks, const char* a_response,
+                        int a_success)
         {
             if (a_kind == Kind::Refine) {
                 // A failed refine must never damage what pass one produced.
@@ -344,7 +347,7 @@ namespace BioForge::Generator
                 const std::string        raw{ a_response };   // pointer dies with the call
                 std::string              bio;
                 std::vector<std::string> missing;
-                Staging::ParseResponse(raw, bio, missing);
+                Staging::ParseResponse(raw, bio, missing, a_extraBlocks);
                 Staging::RecordGenerated(a_refFormID, a_context, raw, bio, missing);
             }
 
@@ -383,9 +386,9 @@ namespace BioForge::Generator
                 const bool queued = SN::SendCustomPrompt(
                     job.kind == Kind::Refine ? kRefinePrompt.data() : kPromptName.data(),
                     job.variant.c_str(), job.contextJson.c_str(),
-                    [kind = job.kind, ref = job.refFormID,
-                     ctx = job.contextJson](const char* a_response, int a_success) {
-                        OnComplete(kind, ref, ctx, a_response, a_success);
+                    [kind = job.kind, ref = job.refFormID, ctx = job.contextJson,
+                     extra = job.extraBlocks](const char* a_response, int a_success) {
+                        OnComplete(kind, ref, ctx, extra, a_response, a_success);
                     });
 
                 if (!queued) {
@@ -425,6 +428,7 @@ namespace BioForge::Generator
             a_job.fileName    = Staging::BioFileName(a_candidate);
             a_job.contextJson = context;
             a_job.variant     = Config::LlmVariant();
+            a_job.extraBlocks = Config::Get().extraBlocks;
             return true;
         }
 
@@ -525,6 +529,7 @@ namespace BioForge::Generator
 
             a_job.kind        = Kind::Refine;
             a_job.variant     = Config::LlmVariant();
+            a_job.extraBlocks = Config::Get().extraBlocks;
             a_job.refFormID   = a_subject.refFormID;
             a_job.name        = a_subject.name;
             a_job.fileName    = Staging::BioFileName(a_subject);

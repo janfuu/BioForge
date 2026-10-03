@@ -178,6 +178,22 @@ at. Ordinary competence is fine and usually correct.
 50-100 words on how they talk: register, accent, sentence length, verbal habits. If their
 dialogue below shows a distinctive voice, describe THAT voice specifically rather than a
 generic one.
+{# Optional sections hook: other plugins describe sections they want in
+   prompts/submodules/bioforge_sections/*.prompt, each under its own `### name`
+   heading. The DLL keeps only the names the player listed in generate.extraBlocks
+   (any other unknown heading is dropped). Renders nothing when no plugin adds one. #}
+{%- set bf_sections = render_subcomponent("bioforge_sections", "bioforge") -%}
+{%- if length(replace(replace(replace(bf_sections, "\n", ""), " ", ""), "\r", "")) > 0 %}
+
+# Optional sections
+
+Plugins installed alongside SkyrimNet ask for the sections below as well. Write each one
+after `speech_style`, under its own `###` heading, only when the evidence calls for it;
+when it does not, leave it out entirely, heading included. They are the only exception
+to "nothing after the last section".
+
+{{ bf_sections }}
+{% endif %}
 
 [ end system ]
 

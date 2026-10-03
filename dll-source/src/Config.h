@@ -1,6 +1,8 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
+#include <vector>
 
 namespace BioForge::Config
 {
@@ -74,6 +76,15 @@ namespace BioForge::Config
         // a fresh variant inherits the DIALOGUE defaults - a flash model on a
         // 4k cap, tight for a ten-block bio - until the player configures it.
         bool ownVariant = false;
+
+        // Optional bio blocks beyond SkyrimNet's ten, for plugins that render
+        // sections of their own. A plugin that wants one describes it in the
+        // prompt hook prompts/submodules/bioforge_sections/ and asks the player
+        // to list it here; ParseResponse keeps exactly these and drops any
+        // other unknown heading with its text. Comma- or space-separated,
+        // lowercase names. Empty by default: without a plugin asking, nothing
+        // changes.
+        std::vector<std::string> extraBlocks;
 
         // So Refresh() can tell whether anything actually moved.
         bool operator==(const Settings&) const = default;

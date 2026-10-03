@@ -59,6 +59,37 @@ namespace BioForge::Config
             }
             return a_fallback;
         }
+
+        // "family_secrets, rumours" -> {"family_secrets", "rumours"}. Names are
+        // lowercased and kept to [a-z0-9_]; the ten built-in blocks and repeats
+        // are skipped, and at most eight are taken.
+        std::vector<std::string> ReadNameList(const char* a_path)
+        {
+            static constexpr std::string_view kBuiltIn[] = {
+                "summary", "interject_summary", "background", "personality", "appearance",
+                "aspirations", "relationships", "occupation", "skills", "speech_style"
+            };
+            std::vector<std::string> out;
+            std::string              name;
+            const auto flush = [&] {
+                if (!name.empty() && out.size() < 8 &&
+                    std::find(std::begin(kBuiltIn), std::end(kBuiltIn), name) == std::end(kBuiltIn) &&
+                    std::find(out.begin(), out.end(), name) == out.end()) {
+                    out.push_back(name);
+                }
+                name.clear();
+            };
+            for (const char ch : SN::PluginConfigValue("BioForge", a_path, "")) {
+                const auto c = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+                if (std::isalnum(static_cast<unsigned char>(c)) || c == '_') {
+                    name += c;
+                } else {
+                    flush();
+                }
+            }
+            flush();
+            return out;
+        }
     }
 
     namespace
@@ -77,6 +108,7 @@ namespace BioForge::Config
 
             s.refinePass = ReadBool("generate.refinePass", defaults.refinePass);
             s.ownVariant = ReadBool("llm.useOwnVariant", defaults.ownVariant);
+            s.extraBlocks = ReadNameList("generate.extraBlocks");
 
             s.digestEnabled   = ReadBool("digest.enabled", defaults.digestEnabled);
             s.digestAutoBuild = ReadBool("digest.autoBuild", defaults.digestAutoBuild);
@@ -96,6 +128,11 @@ namespace BioForge::Config
                        a_what, g_settings.digestEnabled, g_settings.digestAutoBuild,
                        g_settings.digestMaxCandidates);
             logs::info("{}: llm variant={}"sv, a_what, LlmVariant());
+            std::string extra;
+            for (const auto& name : g_settings.extraBlocks) {
+                extra += (extra.empty() ? "" : ", ") + name;
+            }
+            logs::info("{}: extra blocks={}"sv, a_what, extra.empty() ? "(none)" : extra);
         }
     }
 

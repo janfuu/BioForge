@@ -36,8 +36,9 @@ namespace BioForge::Staging
 
         // "### interject summary:" / "#### **Speech Style**" -> block index.
         // Compares letters/digits only, ignoring '_', punctuation and case, so
-        // the common model typos still land on the right block.
-        int MatchBlockName(std::string_view a_heading)
+        // the common model typos still land on the right block. Indices past
+        // the ten are a_extra's (the optional blocks, generate.extraBlocks).
+        int MatchBlockName(std::string_view a_heading, const std::vector<std::string>& a_extra = {})
         {
             std::string clean;
             clean.reserve(a_heading.size());
@@ -47,11 +48,19 @@ namespace BioForge::Staging
                 }
             }
 
-            for (std::size_t i = 0; i < std::size(kBlockNames); ++i) {
-                std::string want{ kBlockNames[i] };
+            const auto matches = [&](std::string_view a_name) {
+                std::string want{ a_name };
                 want.erase(std::remove(want.begin(), want.end(), '_'), want.end());
-                if (clean == want) {
+                return !want.empty() && clean == want;
+            };
+            for (std::size_t i = 0; i < std::size(kBlockNames); ++i) {
+                if (matches(kBlockNames[i])) {
                     return static_cast<int>(i);
+                }
+            }
+            for (std::size_t i = 0; i < a_extra.size(); ++i) {
+                if (matches(a_extra[i])) {
+                    return static_cast<int>(std::size(kBlockNames) + i);
                 }
             }
             return -1;
@@ -139,9 +148,15 @@ namespace BioForge::Staging
     }
 
     bool ParseResponse(std::string_view a_raw, std::string& a_bioText,
-                       std::vector<std::string>& a_missing)
+                       std::vector<std::string>& a_missing,
+                       const std::vector<std::string>& a_extraBlocks)
     {
-        std::array<std::string, std::size(kBlockNames)> blocks{};
+        // The ten, then the optional blocks: kept when present, never missing.
+        constexpr std::size_t    kRequired = std::size(kBlockNames);
+        std::vector<std::string> blocks(kRequired + a_extraBlocks.size());
+        const auto nameAt = [&](std::size_t i) -> std::string_view {
+            return i < kRequired ? kBlockNames[i] : std::string_view{ a_extraBlocks[i - kRequired] };
+        };
 
         int  current = -1;   // nothing captured before the first ### heading
         bool inFence = false;
@@ -170,12 +185,13 @@ namespace BioForge::Staging
                 !trimmed.empty() && trimmed.front() == '#' && !inFence;
             if (isHeading) {
                 const auto rest  = Trim(trimmed.substr(trimmed.find_first_not_of('#')));
-                const auto index = MatchBlockName(rest);
-                if (index >= 0) {
-                    current = index;
-                    continue;
-                }
-                continue;   // an invented heading line is dropped, not captured
+                const auto index = MatchBlockName(rest, a_extraBlocks);
+                // An unknown heading starts a section nobody asked for: drop it
+                // AND its text. Kept going into the previous block, it put a
+                // plugin's section into speech_style whenever that plugin's
+                // name was missing from generate.extraBlocks.
+                current = index;
+                continue;
             }
 
             if (current >= 0) {
@@ -190,12 +206,17 @@ namespace BioForge::Staging
         for (std::size_t i = 0; i < blocks.size(); ++i) {
             auto content = Trim(blocks[i]);
             if (content.empty()) {
-                a_missing.emplace_back(kBlockNames[i]);
-                continue;
+                if (i < kRequired) {
+                    a_missing.emplace_back(kBlockNames[i]);
+                }
+                continue;   // an optional block left out is simply not written
             }
 
+            if (!a_bioText.empty()) {
+                a_bioText += "\n\n";
+            }
             a_bioText += "{% block ";
-            a_bioText += kBlockNames[i];
+            a_bioText += nameAt(i);
             a_bioText += " %}";
             if (content.find('\n') != std::string_view::npos) {
                 a_bioText += '\n';
@@ -205,9 +226,6 @@ namespace BioForge::Staging
                 a_bioText += content;
             }
             a_bioText += "{% endblock %}";
-            if (i + 1 < blocks.size()) {
-                a_bioText += "\n\n";
-            }
         }
 
         return a_missing.empty();

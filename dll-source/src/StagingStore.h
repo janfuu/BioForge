@@ -63,10 +63,13 @@ namespace BioForge
         // Parse an LLM response into the ten blocks and render it as a
         // {% block %} character bio in the corpus format. Lines before the
         // first `###` heading are treated as preamble and dropped; ``` fences
-        // are stripped. False when any block is missing or empty - `a_missing`
-        // names which.
+        // are stripped. False when any of the ten is missing or empty -
+        // `a_missing` names which. `a_extraBlocks` (generate.extraBlocks) are
+        // optional blocks beyond the ten: written after them when the reply
+        // has them, never reported missing. Any other heading is dropped, its text with it.
         bool ParseResponse(std::string_view a_raw, std::string& a_bioText,
-                           std::vector<std::string>& a_missing);
+                           std::vector<std::string>& a_missing,
+                           const std::vector<std::string>& a_extraBlocks = {});
 
         // --- lifecycle, callable from any thread ---
 
